@@ -1,0 +1,160 @@
+---
+title: ESAME DI ANALISI STATISTICA MULTIVARIATA    -  Modelli Statistici --- Docente
+  Fulvia Pennoni -- Statistica e Gestione delle Informazioni II ANNO
+author: "LUCINI PAIONI ANDREA 826578"
+date: "30/04/2020"
+output:
+  word_document: default
+  pdf_document: default
+header-includes:
+- \setlength{\parindent}{3em}
+- \setlength{\parskip}{2em}
+---
+
+# ESERCIZIO 1
+
+## .1 
+
+```{r }
+load("res.Rdata")
+summary(res)
+```
+
+Abbiamo un dataset con cinque variabili, di cui: la variabile risposta Y che indica il costo, e le quattro variabili esplicative X1 (qualità del cibo), X2 (eleganza del locale), X3 (qualità del servizio) e X4, variabile binaria che indica l'ubicazione del locale, se in città o fuori città
+
+Dalle statistiche descrittive ottenute osserviamo che la variabile risposta Y si distribuisce in un intervallo che va da un minimo di 16 e un massimo di 74; inoltre osserviamo che presumibilmente la variabile ha distribuzione simmetrica, in quanto la mediana e la media sono quasi coincidenti e la distanza del primo quartile dalla mediana è uguale alla distanza tra mediana e terzo quartile. Tuttavia la distanza tra terzo quartile e valore massimo (di 26 euro) è più ampia di quella tra valore minimo e primo quartile (di soli 18 euro), quindi possiamo immaginare una coda della distribuzione più "dispersa" nei valori elevati di costo. 
+
+Per quanto riguarda le variabili esplicative, osserviamo che X1, X2 e X3 hanno tutte un campo di variazione meno ampio di quello della variabile risposta Y, e che in tutte e tre le distribuzioni la media e la mediana sono pressochè coincidenti. Sono dunque distribuzioni abbastanza simmetriche, con leggere differenze solo nelle code (ad esempio tra minimo e primo quartile e terzo quartile e massimo in X1).
+
+L'ultima variabile esplicativa X4, è binaria, e può assumere solo valore 0 o 1, valori equamente distribuiti (50 per livello sulle 100 osservazioni totali). 
+
+Proviamo ora a visualizzare le prime osservazioni, per vedere se già da queste possiamo ricavare qualche informazione su eventuali correlazioni tra le variabili.
+
+```{r}
+head(res)
+```
+
+Dalle prime 6 osservazioni, notiamo che a valori elevati di costo (come nella prima osservazione), corrispondono i valori più elevati di X1, X2 e X3. Allo stesso tempo però, al valore più basso di costo Y (osservazione 4) non corrispondono i valori più bassi delle tre variabili. Tuttavia c'è da tenere conto che si tratta solo delle prime 6 osservazioni, per avere un'idea dell'andamento generale delle variabili conviene utilizzare grafici e indici che definiscano la correlazione tra le variabili. 
+
+Interessante, inoltre, è la sola presenza di valore 0 per la variabile X4 nelle prime 6 variabili osservate nel dataset.
+
+
+```{r}
+plot(Y ~ X1, pch=as.character(X4),res, col="red",main="costo, qualità del cibo e ubicazione",xlab="qualità del cibo",ylab="costo")
+```
+
+Dal seguente grafico osserviamo che a qualità del cibo scadente corrispondono in generale ristoranti ubicati in città con costi dei pasti abbastanza contenuti, mentre notiamo che tra i ristoranti con la migliore qualità del cibo ci sono soprattutto ristoranti fuori città, ma si tratta tuttavia dei ristoranti più costosi (solo un ristorante di città rientra tra questo gruppo). 
+
+## .2
+
+```{r }
+library(faraway)
+vif(res[1:4])
+```
+
+La quota di inflazione della varianza (in inglese VIF) indica la presenza o assenza di collinearità eccessiva tra le variabili presenti in un dataset. Ovviamente, si ricercano sempre valori di collinearità bassi (quindi intorno a 1), che ci garantiscono che gli errori standard dei parametri non siano condizionati da associazione tra le variabili esplicative presenti nel dataset. 
+
+In questo caso, i valori sono abbastanza bassi (in quanto consideriamo problematici valori superiori a 5).
+
+```{r}
+sqrt(3.099)
+```
+
+Ad esempio, l'errore standard stimato del costo è circa 1.5 volte maggiore di quanto sarebbe stato se le variabili esplicative non fossero state assolutamente associate tra di loro.
+
+
+## .3 
+
+```{r }
+lm1<-lm(Y ~ X1 + X2 +X3 +X4, res)
+summary(lm1)
+```
+
+Il modello di regressione stimato ha un buon valore di $R^2$, per cui ci aspettiamo che "spieghi" abbastanza bene i valori di Y
+
+La terza colonna della tabella dei coefficienti indica il valore del t value, mentre la quarta colonna indica il p-value corrispondente al test. Si tratta di due valori importanti che ci permettono di verificare l'ipotesi nulla H0 per cui il parametro corrispondente viene posto nullo (ovvero uguale a 0) nel modello di regressione. Concentrandoci sulla variabile X4, osserviamo che il valore del p-value è pari a 0.13, dunque non esiste evidenza contro l'ipotesi nulla di escludere la variabile, dunque possiamo decidere di escludere la variabile X4 dal modello di regressione. 
+
+
+## .4 
+
+```{r }
+lm2<-lm(Y ~ X1 + X2 +X3, res)
+summary(lm2)
+```
+
+Abbiamo stimato ora il modello di regressione escludendo la variabile esplicativa X4 (riferita all'ubicazione del ristorante). Dal summary, otteniamo alcune indicazioni riguardanti:
+- i residui (nella tabella "residuals"), che vanno da un minimo di -21 circa a un massimo di 15 (osserviamo che la mediana è leggermente sfasata rispetto a 0, e che anche i valori massimo e minimo hanno diversa distanza dal valore 0).
+- i coefficienti del modello di regressione (prima colonna della tabella coefficients), che ci mostrano un valore di -35 per l'intercetta (ovvero la variabile risposta assume valore 35 se tutte le altre variabili esplicative vengono poste uguali a 0), e tutti valori positivi per le tre variabili esplicative. Facendo un esempio, a parità di valore per le variabili X2 e X3, la variabile risposta Y aumenta di circa un'unità in caso di aumento unitario della variabile X1. Nella tabella abbiamo, inoltre, anche gli errori standard per ogni variabile, e i t value e p-value dei coefficienti.
+- altre statistiche, come l'$R^2$, l'indice di determinazione multipla che ci indica quanta variabilità di Y è "spiegata" dal modello di regressione. O anche
+
+
+
+Le proprietà degli stimatori del modello di regressione sono:
+
+1. la somma dei residui nel modello di regressione che comprende l'intercetta è uguale a 0. Quindi la somma dei valori interpolati è uguale alla somma dei valori osservati.
+
+2. L'ortogonalità dei residui di rispetto ad ogni variabile esplicativa.
+
+3. Le variabili Z e Y (Y cappello) sono incorrelate, quindi la cov(Z,Y)=0
+
+
+## .5 
+
+```{r }
+plot(res$X2,lm1$residuals,main="Residui rispetto a eleganza del locale",xlab="Eleganza del locale", ylab="Residui", type="p",col="light blue")
+```
+
+Dal grafico che mette in relazione i residui rispetto all'eleganza del locale, notiamo una forma simile ad un'ellisse, con alcuni punti che si discostano leggermente da questa forma (un paio di punti con alti residui e alto livello di eleganza, un punto con alti residui e basso livello di eleganza). Ma in generale, non si osservano pattern inaspettati.
+
+
+
+
+```{r}
+rT<-rstudent(lm1)
+qqnorm(rT,main="grafico Quantile-Quantile",xlab="quantili teorici",ylab="Residui",col="blue")
+qqline(rT)
+```
+
+Dal grafico Quantile-Quantile, invece, osserviamo che i dati seguono abbastanza l'andamento della retta nella parte centrale della distribuzione, mentre abbiamo degli scostamenti dalla stessa per i valori più bassi e per i valori più alti dei residui. In particolare, due punti sono tra i più distanti dalla retta, rispettivamente il valore più basso e il valore più alto dei residui.
+
+
+## .6
+
+Gli intervalli congiunti per coppie di coefficienti di regressione si costruiscono con delle ellissi, che ci consentono di valutare l'ipotesi nulla (congiunta) di nullità dei coefficienti
+
+```{r }
+require(ellipse)
+plot(ellipse(lm1,c(3,4)), type="l",xlab="Eleganza del locale",ylab="Qualità del servizio",main="grafico intervallo coeff di regressione")
+points(coef(lm1)[3],coef(lm1)[4],pch=20)
+abline(v=confint(lm1)[3,],lty=2)
+abline(h=confint(lm1)[4,],lty=2)
+```
+
+Dal grafico ottenuto, osserviamo che l'ellisse è orientata verso sinistra, questo indica una correlazione negativa tra i due coefficienti stimati. Inoltre, osserviamo il punto al centro dell'ellisse, che sono i valori della stima puntuale dei due coefficienti, e i quattro assi (due orizzontali e due verticali), che indicano gli intervalli di confidenza dei singoli coefficienti.
+
+Possiamo, inoltre, rifiutare il test che valuta l'ipotesi congiunta di nullità dei due coefficienti, in quanto l'origine (0,0) non è compresa all'interno dell'ellisse.
+
+
+## .7 
+
+```{r }
+res2<-res[,-5]
+names(res2)
+xc<-c(1,23,19,27)
+names(xc)<-c("Intercept","X1","X2","X3")
+predict(lm2,new=data.frame(t(xc)),interval="confidence")
+```
+
+In caso di previsione del valore medio, l'intervallo di previsione è più piccolo rispetto all'intervallo di previsione della risposta (infatti in questo caso l'intervallo va da 50 circa a 60 circa). Il valore puntuale è indicato da fit, e assume un valore di 55.1 circa.
+
+
+## .8 
+
+Il criterio di Akaike permette di selezionare il modello migliore, considerando o no alcune delle variabili in studio (oltre all'intercetta). Si può utilizzare il procedimento "forward" (parte dal modello nullo e aggiunge una variabile per volta), "backward" (parte dal modello completo e toglie una variabile per volta) o "stepwise" (un misto dei due precedenti, per cui vengono considerate o tolte variabili dal modello fino a quando non si trova il miglior modello possibile). Si ricerca sempre il valore minimo di AIC, per cui verrà indicato il modello migliore.
+
+
+```{r }
+step(lm1, direction="forward")
+```
+
+In questo caso, il valore minimo di AIC è di 388.49, quello per cui il modello è completo, quindi è consigliabile mantenere in analisi il modello completo. 
