@@ -1,0 +1,570 @@
+---
+title: "Progetto 826578"
+author: "Andrea Lucini Paioni"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Librerie
+
+```{r}
+library("forecast")
+library("timeDate")
+library("xts")
+library("KFAS")
+library("randomForest")
+library("EnvStats")
+library("ggplot2")
+library("dplyr")
+library("lubridate")
+library("tsfknn")
+```
+
+
+
+## Funzioni create
+
+```{r}
+
+```
+
+
+# Import dati e prime analisi
+
+```{r}
+energy <- read.csv("data2022_train.csv")
+```
+
+
+```{r}
+head(energy)
+```
+
+```{r}
+ts_energy<- xts(energy$y, as.timeDate(energy$X))
+```
+
+```{r}
+summary(ts_energy)
+periodicity(ts_energy)
+```
+
+
+```{r dev = "png"}
+plot(ts_energy) 
+plot(apply.daily(ts_energy,FUN=mean)) # per giorno
+plot(apply.weekly(ts_energy,FUN=mean)) # per settimana
+plot(apply.monthly(ts_energy,FUN=mean)) # per mese
+```
+
+```{r dev = "png"}
+plot(ts_energy["2017-01-01/2017-03-31"]) # gennaio-marzo
+plot(ts_energy["2017-04-01/2017-06-30"]) # aprile-giugno
+plot(ts_energy["2017-07-01/2017-09-30"]) # luglio-settembre
+plot(ts_energy["2017-10-01/2017-12-31"]) # ottobre-novembre
+```
+
+```{r dev = "png"}
+plot(ts_energy["2017-01-01/2017-01-07"]) # prima settimana di gennaio
+plot(ts_energy["2017-01-01/2017-01-01"]) # primo giorno dell'anno
+```
+
+
+
+```{r dev = "png"}
+boxplot(energy$y, boxwex=0.6, frame=TRUE, ylim=c(10000,60000), main = "Boxplot variabile energy")
+hist(energy$y, freq = TRUE, breaks = 10, labels = TRUE, xlab = "energy", ylab = "Frequenze assolute", ylim=c(0,15000), main = "Istogramma variabile energy")
+```
+
+
+```{r}
+energy$month <- format(index(ts_energy), "%m")
+energy$day <- weekdays(as.POSIXct(index(ts_energy), format = "%m/%d/%Y %H:%M:%S"), abbreviate = FALSE)
+```
+
+
+
+```{r}
+head(energy)
+```
+
+```{r dev = "png"}
+energy %>%
+  ggplot(aes(x=day, y=y, fill=day)) +
+  geom_boxplot() +
+  ggtitle("A boxplot with jitter")
+```
+
+```{r dev = "png"}
+energy %>%
+  ggplot(aes(x=month, y=y, fill=month)) +
+  geom_boxplot() +
+  ggtitle("A boxplot with jitter")
+```
+
+
+
+
+
+
+## Stagionalità
+
+
+```{r dev = "png"}
+msts_cons <- ts_energy[1:(144*60)] |> msts(seasonal.periods = c(144, 144*7))
+p <- msts_cons |> mstl() |> autoplot()
+p
+```
+
+```{r dev = "png"}
+plot(diff(ts_energy, 144)) # stagionalità giornaliera
+plot(diff(ts_energy, 1008))  # stagionalità settimanale
+```
+
+## acf e pacf
+
+
+```{r dev = "png"}
+Acf(diff(ts_energy,144), lag.max = 2016)
+Pacf(ts_energy, lag.max = 2016)
+```
+
+## Trasformazione variabile
+
+Si osserva la dipendenza tra media e varianza giornaliera per verificare la non stazionarietà in varianza.
+
+```{r dev = "png"}
+media <- tapply(ts_energy, rep(1:334, each = 144), mean)
+dev_sd <- tapply(ts_energy, rep(1:334, each = 144), sd)
+plot(media, dev_sd)
+abline(lm(dev_sd~media), col='red',lwd=3)
+text(30000, 9000, paste("corr = ", cor(media, dev_sd)))
+```
+
+Discreta dipendenza (attenzione all'outlier con elevata deviazione standard e media bassa), verifichiamo sia con il valore di lamdba che la trasformazione di Box-Cox. 
+
+
+```{r}
+#bc <- boxcox(dev_sd ~ media)
+#lambda <- bc$x[which.max(bc$y)]
+#lambda
+lambda <- 0.2222
+```
+
+```{r dev = "png"}
+ts_energy_bc <- (ts_energy^lambda-1)/lambda
+media_bc <- tapply(ts_energy_bc, rep(1:334, each = 144), mean)
+dev_sd_bc <- tapply(ts_energy_bc, rep(1:334, each = 144), sd)
+
+
+plot(media_bc, dev_sd_bc)
+abline(lm(dev_sd_bc~media_bc), col='red',lwd=3)
+```
+
+
+```{r dev = "png"}
+ts_energy_log <- log(ts_energy)
+media_log <- tapply(ts_energy_log, rep(1:334, each = 144), mean)
+dev_sd_log <- tapply(ts_energy_log, rep(1:334, each = 144), sd)
+
+plot(media_log, dev_sd_log)
+abline(lm(dev_sd_log~media_log), col='red',lwd=3)
+```
+
+Con entrambe le trasformazioni sembra che risolviamo il problema di dipendenza in media tra media e deviazione standard. 
+
+```{r dev = "png"}
+plot(ts_energy_bc)
+plot(ts_energy_log)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Previsioni
+
+## Aggiunta 30 giorni al dataset
+
+```{r}
+tseq <- seq(from = index(ts_energy[nrow(energy),])+600, length.out = 144*30, by = 600)
+ts_energy_compl <- c(ts_energy, xts(rep(as.numeric(NA), length(tseq)), tseq))
+```
+
+```{r}
+summary(ts_energy_compl) # fino a fine anno
+```
+
+Divisione in train (3 mesi, da agosto a fine ottobre) e test (tutto novembre), sia per modello log che per modello con box-cox, oltre che modello normale
+
+```{r}
+ts_energy_train <- ts_energy["2017-08-01/2017-10-31"]
+ts_energy_test <- ts_energy["2017-11-01/2017-11-30"]
+
+ts_energy_bc_train <- ts_energy_bc["2017-08-01/2017-10-31"]
+ts_energy_bc_test <- ts_energy_bc["2017-11-01/2017-11-30"]
+
+ts_energy_log_train <- ts_energy_log["2017-08-01/2017-10-31"]
+ts_energy_log_test <- ts_energy_log["2017-11-01/2017-11-30"]
+```
+
+Creazione sinusoidi per stagionalità giornaliera e settimanale
+
+```{r}
+# 10 sinusoidi per modellare la stagionalità giornaliera
+
+vj <- c(1,2,3,4,5,6,8,9,10)
+vt <- 1:(nrow(ts_energy_compl))
+
+s_daily <- 24*6   # 6 ogni ora, per 24 ore
+
+freqt_daily <- outer(vt,vj)*2*pi/s_daily
+co_daily <- cos(freqt_daily)
+si_daily <- sin(freqt_daily)
+colnames(co_daily) <- paste0("cosd",vj)
+colnames(si_daily) <- paste0("sind",vj)
+
+sinusoids_daily <- cbind(co_daily,
+                         si_daily)
+
+
+# 10 sinusoidi per modellare la stagionalità settimanale
+
+s_weekly <- 24*6*7  # 6 ogni ora, per 24 ore, per 7 giorni alla settimana
+
+freqt_weekly <- outer(vt,vj)*2*pi/s_weekly
+co_weekly <- cos(freqt_weekly)
+si_weekly <- sin(freqt_weekly)
+colnames(co_weekly) <- paste0("cosw",vj)
+colnames(si_weekly) <- paste0("sinw",vj)
+
+sinusoids_weekly <- cbind(co_weekly,
+                          si_weekly)
+```
+
+
+# Creazione modelli
+
+
+
+
+## ARIMA
+
+### trasformazione log
+
+```{r}
+mod1_log <- Arima(y = ts_energy_log_train, 
+              order=c(3,0,0), 
+              seasonal= list(order=c(0,1,0), period=144),
+              lambda=0,
+              xreg = sinusoids_weekly[1:(length(ts_energy_log_train)),],
+              method='CSS'
+              )
+
+summary(mod1_log)
+```
+
+```{r dev = "png"}
+autoplot(fitted(mod1_log,h=1))
+```
+
+
+```{r}
+pre1_log <- forecast(mod1_log, 
+                 xreg=sinusoids_weekly[(length(ts_energy_train)+1):(length(ts_energy_train)+length(ts_energy_test)),]
+                 )
+```
+
+
+
+```{r dev = "png"}
+stime_arima_log <-  as.vector(exp(pre1_log$mean))
+plot(ts_energy_test, type="l")
+lines(xts(stime_arima_log, index(ts_energy_bc_test)), type="l", col="red")
+```
+
+```{r}
+mae_log<- mean(abs(stime_arima_log-ts_energy_test))
+mae_log
+```
+
+
+```{r dev = "png"}
+plot(mod1_log$residuals)
+```
+
+```{r dev = "png"}
+Acf(mod1_log$residuals, lag.max = 1000)
+Pacf(mod1_log$residuals, lag.max = 1000)
+```
+
+
+
+
+```{r}
+# previsioni ARIMA
+
+
+
+test_index <- index(ts_energy_compl["2017-12-01/"])
+prev_arima <- Arima(ts_energy_compl,
+      order = c(3, 0, 0),
+      seasonal = c(0, 1, 0),
+      include.constant = FALSE,
+      xreg = sinusoids_weekly,
+      method = 'CSS')
+
+
+#test_index <- index(ts_energy_compl["2017-12-01/"])
+
+#model_sinusoids_final <- arima_w_sinusoids(ts_energy_compl, # I work on the original values
+#                                           sinusoids_weekly[1:(test_index-1),])
+summary(prev_arima)
+```
+
+
+```{r}
+december_predictions_arima2 <- forecast(prev_arima, 144*31,
+                                           xreg=sinusoids_weekly)
+december_predictions_arima <- xts(december_predictions_arima2$mean[48098:52416], index(ts_energy_compl[48098:52416]))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+### Auto ARIMA
+
+```{r}
+mod_auto_log <- auto.arima(ts_energy_train, 
+                   xreg=sinusoids_weekly[1:length(ts_energy_train),],
+                   #D=1,
+                   #d=0,
+                   lambda = "auto",
+                   method='CSS')
+mod_auto_log
+```
+
+```{r}
+pre2_log <- forecast(mod_auto_log, 
+                 xreg=sinusoids_weekly[((length(ts_energy_log_train))+1):(length(ts_energy_log_train)+length(ts_energy_log_test)),],
+                 h=4032)
+```
+
+```{r dev = "png"}
+Acf(mod_auto_log$residuals, lag.max = 1000)
+Pacf(mod_auto_log$residuals, lag.max=1000)
+```
+
+```{r}
+pre_mean1 <- xts(pre2_log$mean,
+                order.by = index(ts_energy_log_test))
+auto_mae_log<- mean(abs(pre_mean1-ts_energy_log_test))
+auto_mae_log
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## UCM
+
+
+```{r}
+ucm <- ts_energy_compl["2017-09-01/"]
+```
+
+```{r}
+index_final_ucm <- index(ucm)
+val_ucm <- as.vector(ucm)
+final_ucm <- xts(val_ucm, index_final_ucm)
+```
+
+
+```{r}
+mod1_ucm2 <- SSModel(
+  final_ucm~SSMtrend(2, list(NA,NA))+SSMseasonal(144, NA, "trigonometric", harmonics=1:10)
+      +SSMseasonal(1008, NA, "trigonometric", harmonics=1:10),H=NA)
+```
+
+
+
+
+
+```{r}
+mod1_ucm2$P1inf[] <- 0 #per togliere infiniti dalle varianze
+mod1_ucm2$a1[1] <- mean(log(ts_energy["2017-09-01/2017-09-31"]))
+```
+
+```{r}
+vy<-var(final_ucm, na.rm = TRUE)
+diag(mod1_ucm2$P1) <-vy*10 #matrice covarianza del vettore di stato al tempo 1 
+```
+
+```{r}
+pars <- log(c(
+  logVarEta = vy/10, 
+  logVarZeta = vy/10000, #slope
+  logVarOm1 = vy/1000, #stagionalità giornaliera 
+  logVarOm7 = vy/10000, #stagionalità settimanale
+  logVarEps = vy/10 #white noise
+))
+```
+
+```{r}
+updt1 <- function(pars, model){
+  nq <-nrow(model$Q[,,1])
+  model$Q[1,1,1] <- exp(pars[1])
+  model$Q[2,2,1] <- exp(pars[2])
+  
+  
+  diag(model$Q[3:34,3:34,1]) <- exp(pars[3]) #2+num_harmonics*2
+  diag(model$Q[35:nq,35:nq,1]) <- exp(pars[4])
+  
+  model$H[1,1,1] <- exp(pars[5])
+  model
+}
+```
+
+```{r}
+fit12 <- fitSSM(mod1_ucm2, pars, updt1)
+fit12$optim.out
+```
+
+```{r}
+kfs12 <- KFS(fit12$model, smoothing = c("state","signal", "disturbance"),
+            filtering = c("state","signal"))
+```
+
+
+```{r}
+december_predictions_ucm <- xts(kfs12$muhat[13106:17424], index(ts_energy_compl[48098:52416]))
+november_predictions_ucm <- xts(kfs12$muhat[8787:13106], index(ts_energy_compl[43777:48096]))
+```
+
+
+```{r dev = "png"}
+plot(ts_energy["2017-11-01/"])
+lines(november_predictions_ucm, lwd=1, col="red")
+```
+
+
+
+
+
+```{r}
+maeSSM1<- mean(abs(ts_energy_test-november_predictions_ucm))
+maeSSM1
+```
+
+
+
+## ML
+
+### Knn
+
+```{r}
+knn_train <- function(train){
+  knn_forecasting(ts(train),
+                  h = 144*30,
+                  lags = 1:(144*7),
+                  k=6,
+                  msas = "MIMO",
+                  cf = "median",
+                  transform = "multiplicative")}
+```
+
+```{r}
+knn_validation <- knn_train(ts_energy_train)
+knn_validation_predictions <- xts(knn_validation$prediction, index(ts_energy_test))
+```
+
+```{r}
+mae_knn<- mean(abs(knn_validation_predictions-ts_energy_test))
+mae_knn
+```
+
+
+
+
+```{r}
+plot(ts_energy_test)
+lines(knn_validation_predictions, col = "red")
+```
+
+```{r}
+# previsioni knn
+knn_dec_pred <- knn_train(ts_energy)
+knn_dec_predictions <- xts(knn_dec_pred$prediction, index(ts_energy_compl[48097:52416]))
+
+```
+
+knn_train2 <- function(train){
+  knn_forecasting(ts(train),
+                  h = 144*31,
+                  lags = 1:(144*7),
+                  k=6,
+                  msas = "MIMO",
+                  cf = "median",
+                  transform = "multiplicative")}
+
+
+```{r}
+knn_dec_predictions
+```
+
+# Conclusioni e dataset finale
+
+```{r}
+plot(ts_energy_test)
+lines(november_predictions_ucm, col="red")
+lines(knn_validation_predictions, col = "green")
+lines(xts(stime_arima_log, index(ts_energy_bc_test)), col="blue")
+```
+
+```{r}
+risultati <- data.frame(date = index(december_predictions_arima2),
+                      ARIMA = december_predictions_arima2,
+                      UCM = december_predictions_ucm,
+                      ML = knn_dec_predictions)
+```
+
+
+```{r}
+risultati
+write.csv(risultati, "826578_20230917.csv")
+```
+
