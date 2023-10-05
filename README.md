@@ -2,12 +2,33 @@
 
 Alcuni progetti sviluppati durante i miei anni accademici: 
 
+### - Big Data in Health Care
+
+Progetto del corso di Big Data in Health Care, anno accademico 2022/23, nel corso di Laurea Magistrale in Data Science, presso l'Università degli Studi di Milano - Bicocca.
+
+Il progetto si propone di analizzare l’incidenza di seconda recidiva nei soggetti con resezione chirurgica del Carcinoma epatocellulare (HCC) che hanno già avuto una prima recidiva.
+
+L’HCC è un tumore maligno del fegato e la resezione chirurgica è spesso utilizzata come opzione di trattamento. Tuttavia, anche dopo la rimozione del tumore, la recidiva è comune. Questo studio si concentrerà su pazienti che hanno già avuto una recidiva.
+
+L’analisi dei dati sarà effettuata utilizzando metodi non parametrici e analisi univariate, come il modello Cox. L’obiettivo finale del progetto è quello di sviluppare un modello predittivo che possa aiutare a identificare i pazienti a rischio di seconda recidiva per poter adottare misure preventive appropriate.
+
+
 ### - Data_Management
 Progetto del corso di Data Management, anno accademico 2022/23, nel corso di Laurea Magistrale in Data Science, presso l'Università degli Studi di Milano - Bicocca.
 
 Lo scopo del progetto è quello di creare un dataframe scegliendo diverse fonti per i dati (nel nostro caso, sono state usate tre fonti di dati: https://fbref.com/en/, https://www.transfermarkt.it/ e https://www.capology.com/ , e i dati sono stati importati con downloads tramite la libreria worldfootballR per i primi due siti, e tramite Web Scraping con la libreria BeautifulSoup con Python per il terzo sito), integrare i dati, pulire i dati e renderli consistenti, e caricarli in un DBMS (abbiamo scelto MongoDB) per poi poter eseguire delle queries su di essi.
 
 Il dataset ottenuto è il risultato di integrazione di datasets diversi relativi a 8 campionati di calcio (Serie A, Premier League, Ligue 1, Bundesliga, Liga Spagnola, Eredivisie, Liga Nos e MLS) per la stagione 2022/23, relativi a statistiche sui contratti dei calciatori, sui valori di mercato dei calciatori e sulle statistiche dei calciatori per la stagione 2022/23.
+
+### - Data_Science_Lab
+
+Progetto del corso di Data Science Lab, anno accademico 2022/23, nel corso di Laurea Magistrale in Data Science, presso l'Università degli Studi di Milano - Bicocca.  
+
+Lo scopo del progetto è quello di esplorare il dataset fornito, relativo ai ricavi e numero di scontrini di sei ristoranti (situati in Lombardia ed Emilia Romagna) in un periodo compreso tra gennaio 2018 e aprile 2022, in modo da ottenere insights interessanti. 
+
+Ad una prima fase di import, pulizia ed elaborazione delle informazioni ottenute a partire dai due dataset inizialmente forniti, segue una fase di integrazione dei dati con dataset contenenti informazioni inerenti al fenomeno in studio, ed una fase di esplorazione dei dati.
+
+La seconda parte del progetto riguarda la creazione di modelli e serie storiche che permettano di rappresentare in modo fedele l’andamento dei guadagni dei sei ristoranti di interesse, col fine di individuare eventuali pattern stagionali, trend significativi ed insight che possano aiutare nella stima delle perdite dovute all’avvento del Covid 19 e ai conseguenti periodi di lockdown e limitazioni.
 
 ### - Data Visualization
 Progetto del corso di Data Visualization, anno accademico 2022/23, nel corso di Laurea Magistrale in Data Science, presso l'Università degli Studi di Milano - Bicocca.
@@ -89,6 +110,14 @@ Si descriva in che modo si costruiscono gli intervalli congiunti per coppie di c
 Si determini un intervallo di confidenza per il valore medio previsto del costo quando si considerano i seguenti valori delle variabili esplicative: X1 = 23, X2 = 19, X3 = 27. Si commenti il risultato.
 
 Si descriva il criterio d'informazione proposto da Akaike delineando come questo viene impiegato per la selezione delle variabili esplicative del modello di regressione lineare multipla.
+
+### - Streaming Data Management and Time Series Analysis
+
+Progetto del corso di Streaming Data Management and Time Series Analysis, anno accademico 2022/23, nel corso di Laurea Magistrale in Data Science, presso l'Università degli Studi di Milano - Bicocca. 
+
+Il progetto è mirato all’implementazione di una serie di algoritmi col fine di prevedere valori di una serie storica: si tratta di una serie in cui sono raccolte le rilevazioni di monossido di carbonio (CO), in un periodo compreso tra il 01/01/2017 alle ore 00:00:00, e il 30/12/2017 alle ore 23:50:00: tuttavia il dataset a nostra disposizione comprende i dati fino al 30/11/2017, dunque escludendo l’ultimo mese col fine di prevederne i valori.
+
+Per questo scopo sono stati considerati algoritmi di tre categorie differenti, ARIMA, UCM e machine learning, in modo da individuare i modelli dalle migliori performance predittive, considerando il Mean Absolute Error (MAE), che indica l’errore assoluto medio, come la metrica da considerare.
 
 ### - Tesi di laurea triennale
 
