@@ -1,4 +1,4 @@
-### - Tesi di laurea triennale
+# Tesi di laurea triennale
 
 Tesi di laurea triennale dal titolo "Automated analysis and visualization techniques of data generated with flow cytometry platforms".
 
