@@ -1,6 +1,6 @@
 # projects_portfolio
 
-Alcuni progetti sviluppati durante i miei anni accademici: 
+Alcuni progetti sviluppati all'interno del mio percorso universitario: 
 
 ### - Big Data in Health Care
 
